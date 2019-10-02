@@ -204,6 +204,26 @@ impl<'a> TmuxInterface<'a> {
         Ok(output)
     }
 
+    pub fn attach_session_with(&self, attach_session: &AttachSession, handler: impl FnOnce(Vec<&str>)) {
+        let mut args: Vec<&str> = Vec::new();
+        if attach_session.detach_other.unwrap_or(false) {
+            args.push(d_KEY);
+        }
+        if attach_session.not_update_env.unwrap_or(false) {
+            args.push(E_KEY);
+        }
+        if attach_session.read_only.unwrap_or(false) {
+            args.push(r_KEY);
+        }
+        attach_session
+            .cwd
+            .and_then(|s| Some(args.extend_from_slice(&[c_KEY, &s])));
+        attach_session
+            .target_session
+            .and_then(|s| Some(args.extend_from_slice(&[t_KEY, &s])));
+        self.subcommand_with(TmuxInterface::ATTACH_SESSION, &args, handler)
+    }
+
     /// Detach the current client
     ///
     /// # Manual

@@ -134,11 +134,26 @@ impl<'a> TmuxInterface<'a> {
         self.exec(&options)
     }
 
-    pub fn exec(&self, args: &[&str]) -> Result<Output, Error> {
+    pub fn subcommand_with(&self, subcmd: &str, args: &[&str], handler: impl FnOnce(Vec<&str>)) {
         let mut options: Vec<&str> = Vec::new();
+        options.push(subcmd);
+        options.extend_from_slice(args);
+        self.with(&options, handler)
+    }
+
+    pub fn exec(&self, args: &[&str]) -> Result<Output, Error> {
         let mut cmd = Command::new(self.tmux.unwrap_or(TmuxInterface::TMUX));
         // XXX: using environment vars
         //self.environment.and_then(|s| Some(envs.push(s)));
+        self.with(args, |a| {
+            cmd.args(a);
+        });
+        let output = cmd.output()?;
+        Ok(output)
+    }
+
+    pub fn with(&self, args: &[&str], handler: impl FnOnce(Vec<&str>)) {
+        let mut options: Vec<&str> = Vec::new();
         if self.colours256.unwrap_or(false) {
             options.push(_2_KEY);
         };
@@ -169,9 +184,8 @@ impl<'a> TmuxInterface<'a> {
         if let Some(s) = self.socket_path {
             options.extend_from_slice(&[S_KEY, &s])
         }
-        cmd.args(options);
-        let output = cmd.args(args).output()?;
-        Ok(output)
+        options.extend_from_slice(args);
+        handler(options)
     }
 
     // XXX: refactor: move
